@@ -1,0 +1,4 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+@a = global i32 1
