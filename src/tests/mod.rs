@@ -50,5 +50,9 @@ mod tests {
     test_case!(test_block, "block");
     test_case!(test_if, "if");
     test_case!(test_shortcut, "shortcut");
+    test_case!(test_while, "while");
+    test_case!(test_break, "break");
+    test_case!(test_continue, "continue");
+    test_case!(test_function, "function");
     test_case!(test_global_var, "global_var");
 }

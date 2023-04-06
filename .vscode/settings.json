@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "var": "c",
-        "block": "c"
+        "block": "c",
+        "while": "c",
+        "function": "c"
     }
 }

@@ -1,0 +1,16 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+define i32 @main() {
+entry:
+  br label %while_head
+
+while_head:                                       ; preds = %entry
+  br i32 1, label %while_body, label %after_while
+
+while_body:                                       ; preds = %while_head
+  br label %after_while
+
+after_while:                                      ; preds = %while_body, %while_head
+  ret i32 0
+}

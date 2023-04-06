@@ -1,0 +1,22 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+define i32 @half(i32 %0) {
+entry:
+  %x = alloca i32
+  store i32 %0, i32* %x
+  %x1 = load i32, i32* %x
+  %int_div = sdiv i32 %x1, 2
+  ret i32 %int_div
+}
+
+define void @f() {
+entry:
+}
+
+define i32 @main() {
+entry:
+  call void @f()
+  %half = call i32 @half(i32 10)
+  ret i32 %half
+}

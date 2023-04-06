@@ -1,0 +1,23 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+define i32 @main() {
+entry:
+  %i = alloca i32
+  store i32 0, i32* %i
+  br label %while_head
+
+while_head:                                       ; preds = %while_body, %entry
+  %i1 = load i32, i32* %i
+  %int_lt = icmp slt i32 %i1, 10
+  br i1 %int_lt, label %while_body, label %after_while
+
+while_body:                                       ; preds = %while_head
+  %i2 = load i32, i32* %i
+  %int_add = add i32 %i2, 1
+  store i32 %int_add, i32* %i
+  br label %while_head
+
+after_while:                                      ; preds = %while_head
+  ret i32 0
+}

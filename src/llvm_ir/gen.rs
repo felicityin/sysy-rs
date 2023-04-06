@@ -804,7 +804,7 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for FuncCall {
             )
             .try_as_basic_value()
             .left()
-            .unwrap()
+            .unwrap_or(compiler.int_type.const_zero().as_basic_value_enum())
         )
     }
 }
