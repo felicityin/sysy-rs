@@ -439,29 +439,40 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for If {
         let func_val = compiler.current_fn().llvm_value;
 
         let if_block = compiler.context.append_basic_block(func_val, "if_block");
-        let else_block = compiler.context.append_basic_block(func_val, "else_block");
-        let after_block = compiler.context.append_basic_block(func_val, "after_block");
+        let after_block;
 
-        let cond_int_value = self.cond.generate(compiler)?;
-        compiler.builder
-            .build_conditional_branch(cond_int_value.into_int_value(), if_block, else_block);
-
-        compiler.builder.position_at_end(if_block);
-        self.then.generate(compiler)?;
-        if compiler.no_terminator() {
-            compiler.builder.build_unconditional_branch(after_block);
-        }
-
-        compiler.builder.position_at_end(else_block);
         if let Some(ref else_stmt) = self.else_then {
+            let else_block = compiler.context.append_basic_block(func_val, "else_block");
+            after_block = compiler.context.append_basic_block(func_val, "after_block");
+
+            let cond_int_value = self.cond.generate(compiler)?;
+            compiler.builder
+                .build_conditional_branch(cond_int_value.into_int_value(), if_block, else_block);
+
+            compiler.builder.position_at_end(if_block);
+            self.then.generate(compiler)?;
+            if compiler.no_terminator() {
+                compiler.builder.build_unconditional_branch(after_block);
+            }
+
+            compiler.builder.position_at_end(else_block);
             else_stmt.generate(compiler)?;
+        } else {
+            after_block = compiler.context.append_basic_block(func_val, "after_block");
+
+            let cond_int_value = self.cond.generate(compiler)?;
+            compiler.builder
+                .build_conditional_branch(cond_int_value.into_int_value(), if_block, after_block);
+
+            compiler.builder.position_at_end(if_block);
+            self.then.generate(compiler)?;
         }
+
         if compiler.no_terminator() {
             compiler.builder.build_unconditional_branch(after_block);
         }
 
         compiler.builder.position_at_end(after_block);
-
         Ok(())
     }
 }

@@ -48,5 +48,7 @@ mod tests {
     test_case!(test_const, "const");
     test_case!(test_var, "var");
     test_case!(test_block, "block");
+    test_case!(test_if, "if");
+    test_case!(test_shortcut, "shortcut");
     test_case!(test_global_var, "global_var");
 }

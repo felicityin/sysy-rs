@@ -1,0 +1,25 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+define i32 @main() {
+entry:
+  %a = alloca i32
+  store i32 0, i32* %a
+  %b = alloca i32
+  store i32 1, i32* %b
+  %a1 = load i32, i32* %a
+  %b2 = load i32, i32* %b
+  %logical_or = or i32 %a1, %b2
+  br i32 %logical_or, label %if_block, label %after_block
+
+if_block:                                         ; preds = %entry
+  %a3 = load i32, i32* %a
+  %b4 = load i32, i32* %b
+  %int_add = add i32 %a3, %b4
+  store i32 %int_add, i32* %a
+  br label %after_block
+
+after_block:                                      ; preds = %if_block, %entry
+  %a5 = load i32, i32* %a
+  ret i32 %a5
+}
