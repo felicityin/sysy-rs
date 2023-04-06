@@ -749,6 +749,11 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for PrimaryExp {
     fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
         match self {
             Self::Exp(exp) => exp.generate(compiler),
+            Self::Number(num) => Ok(compiler
+                .int_type
+                .const_int(num.to_owned() as u64, false)
+                .as_basic_value_enum()
+            ),
             Self::LVal(lval) => {
                 if !lval.indices.is_empty() {
                     return Err(CompileErr::NotImplement);
@@ -768,11 +773,6 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for PrimaryExp {
                     }
                 })
             }
-            Self::Number(num) => Ok(compiler
-                .int_type
-                .const_int(num.to_owned() as u64, false)
-                .as_basic_value_enum()
-            ),
         }
     }
 }

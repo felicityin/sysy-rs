@@ -54,5 +54,6 @@ mod tests {
     test_case!(test_break, "break");
     test_case!(test_continue, "continue");
     test_case!(test_function, "function");
-    test_case!(test_global_var, "global_var");
+    test_case!(test_global, "global");
+    // test_case!(test_array, "array");
 }

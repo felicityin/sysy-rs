@@ -1,0 +1,11 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+@var = external global i32
+
+define i32 @main() {
+entry:
+  %var = load i32, i32* @var
+  %int_add = add i32 %var, 1
+  ret i32 %int_add
+}
