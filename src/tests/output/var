@@ -1,0 +1,13 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+define i32 @main() {
+entry:
+  %x = alloca i32
+  store i32 11, i32* %x
+  %y = alloca i32
+  %x1 = load i32, i32* %x
+  %int_add = add i32 %x1, 1
+  store i32 %int_add, i32* %y
+  ret i32 0
+}

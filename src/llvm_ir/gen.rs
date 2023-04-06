@@ -734,7 +734,25 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for PrimaryExp {
     fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
         match self {
             Self::Exp(exp) => exp.generate(compiler),
-            Self::LVal(lval) => lval.generate(compiler),
+            Self::LVal(lval) => {
+                if !lval.indices.is_empty() {
+                    return Err(CompileErr::NotImplement);
+                }
+                Ok(match compiler.value(&lval.id)?.0 {
+                    VariableValue::Mut(ptr) => compiler.builder.build_load(ptr, &lval.id),
+                    VariableValue::Const(c) => c,
+                    VariableValue::ConstVal(num) => {
+                        if lval.indices.is_empty() {
+                            compiler
+                                .int_type
+                                .const_int(num as u64, false)
+                                .as_basic_value_enum()
+                        } else {
+                            return Err(CompileErr::DerefInt);
+                        }
+                    }
+                })
+            }
             Self::Number(num) => Ok(compiler
                 .int_type
                 .const_int(num.to_owned() as u64, false)
