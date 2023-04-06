@@ -14,9 +14,6 @@ pub enum CompileErr {
     #[error("Return val in void function {0}")]
     RetValInVoidFunc(String),
 
-    #[error("Failed to eval")]
-    FailedToEval,
-
     #[error("Deref int error ")]
     DerefInt,
 

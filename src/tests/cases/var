@@ -1,0 +1,5 @@
+int main() {
+    int x = 10 + 1, y;
+    y = x + 1;
+    return 0;
+}

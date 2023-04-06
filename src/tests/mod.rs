@@ -39,15 +39,14 @@ mod tests {
         else {
             String::from(env::current_dir().unwrap().to_str().unwrap())
         }
-    }    
+    }
 
     test_case!(test_just_main, "just_main");
     test_case!(test_unary, "unary");
     test_case!(test_add_exp, "add_exp");
     test_case!(test_rel_exp, "rel_exp");
-    test_case!(test_const_decl, "const_decl");
-    // test_case!(test_var_decl, "var_decl");  // !
+    test_case!(test_const, "const");
+    test_case!(test_var, "var");  // !
     // test_case!(test_block, "block");  // !
     test_case!(test_global_var, "global_var");
-    test_case!(test_const_var, "const_var");
 }

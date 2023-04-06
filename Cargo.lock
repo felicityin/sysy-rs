@@ -621,6 +621,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sysy-rs"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "inkwell",
+ "lalrpop",
+ "lalrpop-util",
+ "regex",
+ "thiserror",
+]
+
+[[package]]
 name = "term"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -658,18 +670,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
 dependencies = [
  "crunchy",
-]
-
-[[package]]
-name = "toy-lang"
-version = "0.1.0"
-dependencies = [
- "clap",
- "inkwell",
- "lalrpop",
- "lalrpop-util",
- "regex",
- "thiserror",
 ]
 
 [[package]]

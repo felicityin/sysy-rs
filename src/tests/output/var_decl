@@ -1,9 +1,0 @@
-; ModuleID = 'module'
-source_filename = "module"
-
-define i32 @main() {
-entry:
-  %x = alloca i32
-  store i32 10, i32* %x
-  ret i32* %x
-}
