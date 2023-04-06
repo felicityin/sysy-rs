@@ -371,9 +371,13 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Block {
     type Out = ();
 
     fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+        compiler.scopes.push(HashMap::new());
+
         for item in &self.items {
             item.generate(compiler)?;
         }
+
+        compiler.scopes.pop();
         Ok(())
     }
 }

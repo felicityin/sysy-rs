@@ -5,8 +5,7 @@ define i32 @main() {
 entry:
   %a = alloca i32
   store i32 1, i32* %a
-  %b = alloca i32
-  store i32 2, i32* %b
   %a1 = alloca i32
   store i32 2, i32* %a1
+  ret i32 0
 }

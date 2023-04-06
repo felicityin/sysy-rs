@@ -47,6 +47,6 @@ mod tests {
     test_case!(test_rel_exp, "rel_exp");
     test_case!(test_const, "const");
     test_case!(test_var, "var");
-    // test_case!(test_block, "block");  // !
+    test_case!(test_block, "block");
     test_case!(test_global_var, "global_var");
 }
