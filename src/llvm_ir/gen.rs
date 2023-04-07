@@ -104,7 +104,7 @@ impl<'ctx, 'ast> Compiler<'ctx, 'ast> {
         self.module.print_to_file(path).unwrap()
     }
 
-    pub fn _optimize(&self) {
+    pub fn optimize(&self) {
         let pass_manager = PassManager::create(());
 
         pass_manager.add_promote_memory_to_register_pass();

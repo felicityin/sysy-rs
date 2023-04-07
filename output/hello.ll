@@ -3,22 +3,16 @@ source_filename = "module"
 
 define i32 @main() {
 entry:
-  %a = alloca i32
-  store i32 2, i32* %a
-  %a1 = load i32, i32* %a
-  br i32 %a1, label %if_block, label %else_block
+  br i32 2, label %if_block, label %else_block
 
 if_block:                                         ; preds = %entry
-  %a2 = load i32, i32* %a
-  %int_add = add i32 %a2, 1
-  store i32 %int_add, i32* %a
+  %int_add = add i32 2, 1
   br label %after_block
 
 else_block:                                       ; preds = %entry
-  store i32 0, i32* %a
   br label %after_block
 
 after_block:                                      ; preds = %else_block, %if_block
-  %a3 = load i32, i32* %a
-  ret i32 %a3
+  %a.0 = phi i32 [ %int_add, %if_block ], [ 0, %else_block ]
+  ret i32 %a.0
 }
