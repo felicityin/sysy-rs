@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -6,11 +7,14 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
 use inkwell::types::{BasicMetadataTypeEnum, IntType, VoidType, BasicType};
+use inkwell::targets::{
+    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
+};
 use inkwell::values::BasicValue;
 use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue, PointerValue};
 use inkwell::IntPredicate;
 
-use crate::llvm_ir::error::CompileErr;
+use crate::llvm::error::CompileErr;
 use crate::parser::ast::*;
 
 use super::eval::Evaluate;
@@ -90,17 +94,11 @@ impl<'ctx, 'ast> Compiler<'ctx, 'ast> {
         program.generate(self)
     }
 
-    pub fn no_terminator(&self) -> bool {
-        let block = self.builder.get_insert_block();
-        let terminator = block.unwrap().get_terminator();
-        terminator.is_none()
-    }
-
     pub fn get_llvm_ir(&self) -> String {
         self.module.print_to_string().to_string()
     }
 
-    pub fn write_to_file(&self, path: &str) {
+    pub fn write_ir_to_file(&self, path: &str) {
         self.module.print_to_file(path).unwrap()
     }
 
@@ -113,6 +111,30 @@ impl<'ctx, 'ast> Compiler<'ctx, 'ast> {
         pass_manager.add_constant_merge_pass();
 
         pass_manager.run_on(&self.module);
+    }
+
+    pub fn gen_riskv(&self, path: &Path) {
+        Target::initialize_riscv(&InitializationConfig::default());
+        let triple = TargetTriple::create("riscv64-unknown-elf");
+        let target  = Target::from_triple(&triple).unwrap();
+        let target_machine = target
+            .create_target_machine(
+                &triple,
+                TargetMachine::get_host_cpu_name().to_str().unwrap_or_default(),
+                TargetMachine::get_host_cpu_features().to_str().unwrap_or_default(),
+                inkwell::OptimizationLevel::Default,
+                RelocMode::Default,
+                CodeModel::Default,
+            )
+            .unwrap();
+
+        target_machine.write_to_file(&self.module, FileType::Assembly, path).unwrap();
+    }
+
+    pub fn no_terminator(&self) -> bool {
+        let block = self.builder.get_insert_block();
+        let terminator = block.unwrap().get_terminator();
+        terminator.is_none()
     }
 
     pub fn current_fn(&self) -> &Function<'ctx, 'ast> {

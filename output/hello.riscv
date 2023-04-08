@@ -1,0 +1,25 @@
+	.text
+	.file	"module"
+	.globl	sum
+	.p2align	2
+	.type	sum,@function
+sum:
+	.cfi_startproc
+	addw	a0, a0, a1
+	ret
+.Lfunc_end0:
+	.size	sum, .Lfunc_end0-sum
+	.cfi_endproc
+
+	.globl	main
+	.p2align	2
+	.type	main,@function
+main:
+	.cfi_startproc
+	addi	a0, zero, 3
+	ret
+.Lfunc_end1:
+	.size	main, .Lfunc_end1-main
+	.cfi_endproc
+
+	.section	".note.GNU-stack","",@progbits

@@ -7,7 +7,7 @@ mod tests {
     use inkwell::context::Context;
     use lalrpop_util::lalrpop_mod;
 
-    use crate::llvm_ir::Compiler;
+    use crate::llvm::Compiler;
 
     lalrpop_mod!(sysy);
 

@@ -11,6 +11,6 @@ cargo test
 
 # Run
 ```
-cargo run -- -i input/hello.c -o output/hello.ll
+cargo run -- -i input/hello.c -o output/hello.ll -s output/hello.riscv
 ```
 

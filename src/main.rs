@@ -1,13 +1,14 @@
+mod llvm;
 mod parser;
 mod tests;
-mod llvm_ir;
 
 use std::fs::read_to_string;
+use std::path::Path;
 
 use inkwell::context::Context;
 use lalrpop_util::lalrpop_mod;
 
-use crate::llvm_ir::Compiler;
+use crate::llvm::Compiler;
 
 lalrpop_mod!(sysy);
 
@@ -22,27 +23,34 @@ fn main() {
                 .help("Input file needs to be parsed.")
                 .action(clap::ArgAction::Set),
             ).arg(
-                clap::Arg::new("output")
+                clap::Arg::new("output-ir")
                     .short('o')
-                    .default_value("output/hello.ir")
+                    .default_value("output/hello.ll")
                     .help("Output llvm ir file")
+                    .action(clap::ArgAction::Set),
+            ).arg(
+                clap::Arg::new("output-riskv")
+                    .short('s')
+                    .default_value("output/hello.riscv")
+                    .help("Output riscv file")
                     .action(clap::ArgAction::Set),
             );
 
     let matches = cmd.get_matches();
     let input = matches.get_one::<String>("input").unwrap();
-    let output = matches.get_one::<String>("output").unwrap();
+    let output_ir = matches.get_one::<String>("output-ir").unwrap();
+    let output_riscv = matches.get_one::<String>("output-riskv").unwrap();
 
     // parse input file
     let input = read_to_string(input).unwrap();
     let program_ast = sysy::CompUnitParser::new().parse(&input).unwrap();
-    // println!("AST:\n{}", program_ast);
 
     // generate LLVM IR
     let context = Context::create();
     let mut compiler = Compiler::new(&context);
     compiler.generate(&program_ast).unwrap();
     compiler.optimize();
-    compiler.write_to_file(output);
+    compiler.write_ir_to_file(output_ir);
+    compiler.gen_riskv(Path::new(&output_riscv));
     println!("LLVM IR:\n{:#?}", compiler.get_llvm_ir());
 }

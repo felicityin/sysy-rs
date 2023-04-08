@@ -1,5 +1,5 @@
-use crate::llvm_ir::gen::VariableValue;
-use crate::llvm_ir::Compiler;
+use crate::llvm::gen::VariableValue;
+use crate::llvm::Compiler;
 use crate::parser::ast::*;
 
 /// Trait for evaluating constant.
