@@ -10,7 +10,7 @@ lalrpop = "0.19"
 
 [dependencies]
 clap = { version = "4", features = ["cargo"] }
-inkwell = { version = "0.1", features = ["llvm10-0"] }
+inkwell = { version = "0.1", features = ["llvm15-0"] }
 lalrpop-util = { version = "0.19", features = ["lexer"] }
 regex = "1.7"
 thiserror = "1.0"

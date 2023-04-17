@@ -505,13 +505,8 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for While {
     fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
         let fv = compiler.current_fn().llvm_value;
 
-        // create the `while_head` block
         let while_head = compiler.context.append_basic_block(fv, "while_head");
-
-        // create the `while_body` block
         let while_body = compiler.context.append_basic_block(fv, "while_body");
-
-        // create the `after_while` block
         let after_while = compiler.context.append_basic_block(fv, "after_while");
 
         // enter the loop from outside
@@ -781,7 +776,7 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for PrimaryExp {
                     return Err(CompileErr::NotImplement);
                 }
                 Ok(match compiler.value(&lval.id)?.0 {
-                    VariableValue::Mut(ptr) => compiler.builder.build_load(ptr, &lval.id),
+                    VariableValue::Mut(ptr) => compiler.builder.build_load(compiler.int_type, ptr, &lval.id),
                     VariableValue::Const(c) => c,
                     VariableValue::ConstVal(num) => {
                         if lval.indices.is_empty() {

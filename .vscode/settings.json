@@ -4,5 +4,7 @@
         "block": "c",
         "while": "c",
         "function": "c"
-    }
+    },
+    "editor.tabCompletion": "on",
+    "diffEditor.codeLens": true
 }

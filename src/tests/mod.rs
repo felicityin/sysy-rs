@@ -26,7 +26,7 @@ mod tests {
                 let res = compiler.generate(&program_ast);
 
                 let out_path = format!("{}/src/tests/output/{}", path, $filename);
-                compiler.write_to_file(&out_path);
+                compiler.write_ir_to_file(&out_path);
                 assert!(res.is_ok());
             }
         };

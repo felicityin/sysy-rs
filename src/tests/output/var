@@ -3,11 +3,11 @@ source_filename = "module"
 
 define i32 @main() {
 entry:
-  %x = alloca i32
-  store i32 11, i32* %x
-  %y = alloca i32
-  %x1 = load i32, i32* %x
+  %x = alloca i32, align 4
+  store i32 11, ptr %x, align 4
+  %y = alloca i32, align 4
+  %x1 = load i32, ptr %x, align 4
   %int_add = add i32 %x1, 1
-  store i32 %int_add, i32* %y
+  store i32 %int_add, ptr %y, align 4
   ret i32 0
 }

@@ -1,4 +1,6 @@
 	.text
+	.attribute	4, 16
+	.attribute	5, "rv64i2p0"
 	.file	"module"
 	.globl	sum
 	.p2align	2
@@ -16,7 +18,7 @@ sum:
 	.type	main,@function
 main:
 	.cfi_startproc
-	addi	a0, zero, 3
+	li	a0, 3
 	ret
 .Lfunc_end1:
 	.size	main, .Lfunc_end1-main

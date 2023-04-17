@@ -5,7 +5,7 @@ source_filename = "module"
 
 define i32 @main() {
 entry:
-  %var = load i32, i32* @var
+  %var = load i32, ptr @var, align 4
   %int_add = add i32 %var, 1
   ret i32 %int_add
 }
