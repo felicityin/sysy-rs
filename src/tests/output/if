@@ -5,12 +5,11 @@ define i32 @main() {
 entry:
   %a = alloca i32, align 4
   store i32 2, ptr %a, align 4
-  %a1 = load i32, ptr %a, align 4
-  br i32 %a1, label %if_block, label %else_block
+  br i1 true, label %if_block, label %else_block
 
 if_block:                                         ; preds = %entry
-  %a2 = load i32, ptr %a, align 4
-  %int_add = add i32 %a2, 1
+  %a1 = load i32, ptr %a, align 4
+  %int_add = add i32 %a1, 1
   store i32 %int_add, ptr %a, align 4
   br label %after_block
 
@@ -19,6 +18,6 @@ else_block:                                       ; preds = %entry
   br label %after_block
 
 after_block:                                      ; preds = %else_block, %if_block
-  %a3 = load i32, ptr %a, align 4
-  ret i32 %a3
+  %a2 = load i32, ptr %a, align 4
+  ret i32 %a2
 }

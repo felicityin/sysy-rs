@@ -6,12 +6,14 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
-use inkwell::types::{BasicMetadataTypeEnum, IntType, VoidType, BasicType};
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, IntType, VoidType};
 use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
-use inkwell::values::BasicValue;
-use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue, PointerValue};
+use inkwell::values::{
+    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue
+};
+use inkwell::AddressSpace;
 use inkwell::IntPredicate;
 
 use crate::llvm::error::CompileErr;
@@ -21,7 +23,7 @@ use super::eval::Evaluate;
 
 pub type Result<T> = std::result::Result<T, CompileErr>;
 
-pub struct Compiler<'ctx, 'ast> {
+pub struct Compiler<'ast, 'ctx> {
     pub context: &'ctx Context,
     pub builder: Builder<'ctx>,
     pub module: Module<'ctx>,
@@ -29,7 +31,7 @@ pub struct Compiler<'ctx, 'ast> {
     pub int_type: IntType<'ctx>,
     pub void_type: VoidType<'ctx>,
 
-    pub current_fn: Option<Function<'ctx, 'ast>>,
+    pub current_fn: Option<Function<'ast, 'ctx>>,
     pub loops: Vec<Loop<'ctx>>,
     pub scopes: Vec<HashMap<&'ast str, Variable<'ctx>>>,
 }
@@ -41,7 +43,7 @@ pub struct Loop<'ctx> {
     after_loop: BasicBlock<'ctx>,
 }
 
-pub struct Function<'ctx, 'ast> {
+pub struct Function<'ast, 'ctx> {
     /// Specifies the name of the function.
     name: &'ast str,
     /// Holds the LLVM function value.
@@ -53,8 +55,8 @@ pub struct Function<'ctx, 'ast> {
 pub struct Variable<'ctx>(pub VariableValue<'ctx>);
 
 impl<'ctx> Variable<'ctx> {
-    pub fn new_mut(ptr: PointerValue<'ctx>) -> Self {
-        Self(VariableValue::Mut(ptr))
+    pub fn new_mut(ptr: PointerValue<'ctx>, type_: BasicTypeEnum<'ctx>, origin_type: BasicTypeEnum<'ctx>) -> Self {
+        Self(VariableValue::Mut((ptr, type_, origin_type)))
     }
 
     pub fn new_const(value: BasicValueEnum<'ctx>) -> Self {
@@ -69,14 +71,14 @@ impl<'ctx> Variable<'ctx> {
 #[derive(Clone, Copy, Debug)]
 pub enum VariableValue<'ctx> {
     /// A mutable variable which can be assigned to later.
-    Mut(PointerValue<'ctx>),
+    Mut((PointerValue<'ctx>, BasicTypeEnum<'ctx>, BasicTypeEnum<'ctx>)),
     /// A static variable which is only declared and used.
     Const(BasicValueEnum<'ctx>),
     /// Const value.
     ConstVal(i32),
 }
 
-impl<'ctx, 'ast> Compiler<'ctx, 'ast> {
+impl<'ast, 'ctx> Compiler<'ast, 'ctx> {
     pub fn new(context: &'ctx Context) -> Self {
         Compiler {
             context,
@@ -137,7 +139,7 @@ impl<'ctx, 'ast> Compiler<'ctx, 'ast> {
         terminator.is_none()
     }
 
-    pub fn current_fn(&self) -> &Function<'ctx, 'ast> {
+    pub fn current_fn(&self) -> &Function<'ast, 'ctx> {
         self.current_fn
             .as_ref()
             .expect("this is only called from functions")
@@ -167,16 +169,16 @@ impl<'ctx, 'ast> Compiler<'ctx, 'ast> {
     }
 }
 
-pub trait GenerateProgram<'ctx, 'ast> {
+pub trait GenerateProgram<'ast, 'ctx> {
     type Out;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out>;
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out>;
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for CompUnit {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for CompUnit {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         for item in &self.items {
             item.generate(compiler)?;
         }
@@ -184,10 +186,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for CompUnit {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for GlobalItem {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for GlobalItem {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Decl(decl) => decl.generate(compiler)?,
             Self::FuncDef(def) => def.generate(compiler)?,
@@ -196,10 +198,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for GlobalItem {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Decl {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Decl {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Const(c) => c.generate(compiler),
             Self::Var(v) => v.generate(compiler),
@@ -207,10 +209,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Decl {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for ConstDecl {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for ConstDecl {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         for def in &self.defs {
             def.generate(compiler)?;
         }
@@ -218,23 +220,34 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for ConstDecl {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for ConstDef {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for ConstDef {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         let init = self.init.generate(compiler)?;
 
         if self.dims.is_empty() {
             compiler.new_value(&self.id, Variable::new_const_val(init.1))?;
         } else {
+            let llvm_type = self.dims
+                .iter()
+                .rev()
+                .map(|x| {
+                    x.eval(compiler).unwrap() as u32
+                })
+                .fold(
+                    compiler.int_type.as_basic_type_enum(),
+                    |acc, len| acc.array_type(len).as_basic_type_enum(),
+                )
+                .as_basic_type_enum();
             let ptr = if compiler.current_fn.is_none() {  // global
-                let global = compiler.module.add_global(compiler.int_type, None, &self.id);
-                global.set_initializer(&init.0);
+                let global = compiler.module.add_global(llvm_type, None, &self.id);
+                global.set_initializer(&init.0);  // todo
                 global.set_constant(true);
                 global.as_basic_value_enum()
             } else {  // local
-                let ptr = compiler.builder.build_alloca(compiler.int_type, &self.id);
-                compiler.builder.build_store(ptr, init.0);
+                let ptr = compiler.builder.build_alloca(llvm_type, &self.id);
+                compiler.builder.build_store(ptr, init.0);  // todo
                 ptr.as_basic_value_enum()
             };
             compiler.new_value(&self.id, Variable::new_const(ptr))?;
@@ -243,27 +256,38 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for ConstDef {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for ConstInitVal {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for ConstInitVal {
     type Out = (BasicValueEnum<'ctx>, i32);
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Exp(exp) => {
                 let v = exp.eval(compiler).unwrap();
                 Ok((compiler
-                    .int_type
-                    .const_int(v as u64, false)
-                    .as_basic_value_enum(), v))
+                        .int_type
+                        .const_int(v as u64, false)
+                        .as_basic_value_enum(),
+                    v))
             }
-            Self::List(_list) => Err(CompileErr::NotImplement),
+            Self::List(list) => {  // todo
+                let arr = list.iter().map(|_| compiler
+                    .int_type
+                    .const_int(0 as u64, false)
+                ).collect::<Vec<IntValue>>();
+                Ok((compiler
+                        .int_type
+                        .const_array(&arr)
+                        .as_basic_value_enum(),
+                    0))
+            }
         }
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for VarDecl {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for VarDecl {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         for def in &self.defs {
             def.generate(compiler)?;
         }
@@ -271,34 +295,50 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for VarDecl {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for VarDef {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for VarDef {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
+        let llvm_type = if self.dims.is_empty() {
+            compiler.int_type.as_basic_type_enum()
+        } else {
+            self.dims
+                .iter()
+                .rev()
+                .map(|x| {
+                    x.eval(compiler).unwrap() as u32
+                })
+                .fold(
+                    compiler.int_type.as_basic_type_enum(),
+                    |acc, len| acc.array_type(len).as_basic_type_enum(),
+                )
+                .as_basic_type_enum()
+        };
+
         let ptr = if compiler.current_fn.is_none() {  // global
-            let global = compiler.module.add_global(compiler.int_type, None, &self.id);
+            let global = compiler.module.add_global(llvm_type, None, &self.id);
             if let Some(ref init) = self.init {
                 let init = init.generate(compiler)?;
                 global.set_initializer(&init);
             }
             global.as_pointer_value()
         } else {  // local
-            let ptr = compiler.builder.build_alloca(compiler.int_type, &self.id);
+            let ptr = compiler.builder.build_alloca(llvm_type, &self.id);
             if let Some(ref init) = self.init {
                 let init = init.generate(compiler)?;
                 compiler.builder.build_store(ptr, init);
             }
             ptr
         };
-        compiler.new_value(&self.id, Variable::new_mut(ptr))?;
+        compiler.new_value(&self.id, Variable::new_mut(ptr, llvm_type, llvm_type))?;
         Ok(())
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for InitVal {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for InitVal {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Exp(exp) => Ok(
                 if compiler.current_fn.is_none() {
@@ -315,21 +355,24 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for InitVal {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for FuncDef {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for FuncDef {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         if compiler.in_globals(&self.id) {
             return Err(CompileErr::DuplicatedSymbol(self.id.clone()));
         }
 
         let mut params_type = Vec::new();
         for param in self.params.iter() {
-            if let Some(ref _dims) = param.dims {
-                return Err(CompileErr::NotImplement);
+            let param_type = if param.dims.is_some() {
+                BasicMetadataTypeEnum::from(
+                    compiler.int_type.ptr_type(AddressSpace::default())
+                )
             } else {
-                params_type.push(BasicMetadataTypeEnum::IntType(compiler.int_type));
-            }
+                BasicMetadataTypeEnum::from(compiler.int_type)
+            };
+            params_type.push(param_type);
         }
 
         let fn_type = match self.ty {
@@ -356,24 +399,41 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for FuncDef {
         compiler.builder.position_at_end(entry_block);
 
         for (idx, param) in self.params.iter().enumerate() {
-            if let Some(ref _dims) = param.dims {
-                return Err(CompileErr::NotImplement);
+            let (llvm_type, origin_type) = if let Some(ref dims) = param.dims {
+                (
+                    compiler.int_type.ptr_type(AddressSpace::default()).as_basic_type_enum(),
+                    dims
+                        .iter()
+                        .rev()
+                        .map(|x| {
+                            x.eval(compiler).unwrap() as u32
+                        })
+                        .fold(
+                            compiler.int_type.as_basic_type_enum(),
+                            |acc, len| acc.array_type(len).as_basic_type_enum(),
+                        )
+                        .as_basic_type_enum()
+                )
             } else {
-                // allocate a pointer for each parameter (allows mutability)
-                let ptr = compiler.builder.build_alloca(
-                    compiler.context.i32_type().as_basic_type_enum(),
-                    &param.id,
-                );
-                // get the param's value from the function
-                let value = function
-                    .get_nth_param(idx as u32)
-                    .expect("the function signatures have been added before");
+                (compiler.int_type.as_basic_type_enum(), compiler.int_type.as_basic_type_enum())
+            };
 
-                // store the param value in the pointer
-                compiler.builder.build_store(ptr, value);
-                // insert the pointer / parameter into the current scope
-                compiler.new_value(&param.id, Variable::new_mut(ptr))?;
-            }
+            // allocate a pointer for each parameter (allows mutability)
+            let ptr = compiler.builder.build_alloca(
+                llvm_type,
+                &param.id,
+            );
+            // get the param's value from the function
+            let value = function
+                .get_nth_param(idx as u32)
+                .expect("the function signatures have been added before");
+            value.set_name(&param.id);
+
+            // store the param value in the pointer
+            compiler.builder.build_store(ptr, value);
+
+            // insert the pointer / parameter into the current scope
+            compiler.new_value(&param.id, Variable::new_mut(ptr, llvm_type, origin_type))?;
         }
 
         // compile the body
@@ -389,10 +449,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for FuncDef {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Block {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Block {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         compiler.scopes.push(HashMap::new());
 
         for item in &self.items {
@@ -404,10 +464,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Block {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for BlockItem {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for BlockItem {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Decl(decl) => decl.generate(compiler),
             Self::Stmt(stmt) => stmt.generate(compiler),
@@ -415,10 +475,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for BlockItem {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Stmt {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Stmt {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Assign(s) => s.generate(compiler),
             Self::ExpStmt(s) => s.generate(compiler),
@@ -432,10 +492,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Stmt {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Assign {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Assign {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         let lval = self.lval.generate(compiler)?.into_pointer_value();
         let rhs = self.exp.generate(compiler)?.into_int_value();
         compiler.builder.build_store(lval, rhs);
@@ -443,10 +503,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Assign {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for ExpStmt {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for ExpStmt {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         if let Some(exp) = &self.exp {
             exp.generate(compiler)?;
         }
@@ -454,10 +514,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for ExpStmt {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for If {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for If {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         let func_val = compiler.current_fn().llvm_value;
 
         let if_block = compiler.context.append_basic_block(func_val, "if_block");
@@ -467,9 +527,9 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for If {
             let else_block = compiler.context.append_basic_block(func_val, "else_block");
             after_block = compiler.context.append_basic_block(func_val, "after_block");
 
-            let cond_int_value = self.cond.generate(compiler)?;
+            let cond_value = self.cond.generate(compiler)?;
             compiler.builder
-                .build_conditional_branch(cond_int_value.into_int_value(), if_block, else_block);
+                .build_conditional_branch(cond_value.into_int_value(), if_block, else_block);
 
             compiler.builder.position_at_end(if_block);
             self.then.generate(compiler)?;
@@ -499,10 +559,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for If {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for While {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for While {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         let fv = compiler.current_fn().llvm_value;
 
         let while_head = compiler.context.append_basic_block(fv, "while_head");
@@ -545,10 +605,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for While {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Break {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Break {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         let after_loop_block = compiler
             .loops
             .last()
@@ -560,10 +620,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Break {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Continue {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Continue {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         let loop_start_block = compiler
             .loops
             .last()
@@ -575,10 +635,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Continue {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Return {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Return {
     type Out = ();
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         if let FuncType::Int = compiler.current_fn().return_type {
             if let Some(val) = &self.exp {
                 let value = val.generate(compiler)?;
@@ -593,44 +653,84 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Return {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for LVal {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for LVal {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
-        let value = match compiler.value(&self.id)?.0 {
-            VariableValue::Mut(value) => value.as_basic_value_enum(),
-            VariableValue::Const(c) => c,
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
+        match compiler.value(&self.id)?.0 {
+            VariableValue::Const(c) => Ok(c),
             VariableValue::ConstVal(num) => {
                 if self.indices.is_empty() {
-                    compiler
+                    Ok(compiler
                         .int_type
                         .const_int(num as u64, false)
-                        .as_basic_value_enum()
+                        .as_basic_value_enum())
                 } else {
                     return Err(CompileErr::DerefInt);
                 }
             }
-        };
+            VariableValue::Mut((mut value, type_, origin_type)) => {
+                if self.indices.is_empty() {
+                    Ok(value.as_basic_value_enum())
+                } else {
+                    if type_.is_array_type() {
+                        let mut idx_vals = vec![compiler.int_type.const_zero()];
+                        idx_vals.extend(self.indices
+                            .iter()
+                            .map(|expr| compiler
+                                .int_type
+                                .const_int(expr.eval(compiler).unwrap() as u64, false)
+                            ),
+                        );
+                        Ok(unsafe {
+                            compiler.builder.build_in_bounds_gep(
+                                type_,
+                                value,
+                                idx_vals.as_ref(),
+                                "index_access"
+                            ).as_basic_value_enum()
+                        })
+                    } else {  // array pointer
+                        value = compiler.builder.build_load(
+                            compiler.int_type.ptr_type(AddressSpace::default()),
+                            value,
+                            "array_ptr"
+                        ).into_pointer_value();
 
-        if !self.indices.is_empty() {
-            return Err(CompileErr::NotImplement);
+                        let idx_vals = self.indices
+                            .iter()
+                            .map(|expr| compiler
+                                .int_type
+                                .const_int(expr.eval(compiler).unwrap() as u64, false)
+                            ).collect::<Vec<IntValue>>();
+
+                        Ok(unsafe {
+                            compiler.builder.build_in_bounds_gep(
+                                origin_type,
+                                value,
+                                idx_vals.as_ref(),
+                                "index_access"
+                            ).as_basic_value_enum()
+                        })
+                    }
+                }
+            }
         }
-        Ok(value)
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for Exp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for Exp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         self.lor.generate(compiler)
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for LOrExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for LOrExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::LAnd(exp) => exp.generate(compiler),
             Self::LOrLAnd(lhs, rhs) => {
@@ -642,10 +742,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for LOrExp {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for LAndExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for LAndExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Eq(exp) => exp.generate(compiler),
             Self::LAndEq(lhs, rhs) => {
@@ -657,10 +757,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for LAndExp {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for EqExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for EqExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Rel(exp) => exp.generate(compiler),
             Self::EqRel(lhs, op, rhs) => {
@@ -676,10 +776,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for EqExp {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for RelExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for RelExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Add(exp) => exp.generate(compiler),
             Self::RelAdd(lhs, op, rhs) => {
@@ -697,10 +797,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for RelExp {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for AddExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for AddExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Mul(exp) => exp.generate(compiler),
             Self::AddMul(lhs, op, rhs) => {
@@ -716,10 +816,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for AddExp {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for MulExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for MulExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Unary(exp) => exp.generate(compiler),
             Self::MulUnary(lhs, op, rhs) => {
@@ -736,10 +836,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for MulExp {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for UnaryExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for UnaryExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Primary(exp) => exp.generate(compiler),
             Self::Call(call) => call.generate(compiler),
@@ -760,10 +860,10 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for UnaryExp {
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for PrimaryExp {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for PrimaryExp {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         match self {
             Self::Exp(exp) => exp.generate(compiler),
             Self::Number(num) => Ok(compiler
@@ -772,11 +872,7 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for PrimaryExp {
                 .as_basic_value_enum()
             ),
             Self::LVal(lval) => {
-                if !lval.indices.is_empty() {
-                    return Err(CompileErr::NotImplement);
-                }
                 Ok(match compiler.value(&lval.id)?.0 {
-                    VariableValue::Mut(ptr) => compiler.builder.build_load(compiler.int_type, ptr, &lval.id),
                     VariableValue::Const(c) => c,
                     VariableValue::ConstVal(num) => {
                         if lval.indices.is_empty() {
@@ -788,16 +884,79 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for PrimaryExp {
                             return Err(CompileErr::DerefInt);
                         }
                     }
+                    VariableValue::Mut((ptr, type_, origin_type)) => {
+                        if type_.is_int_type() {
+                            compiler.builder.build_load(
+                                compiler.int_type,
+                                ptr,
+                                &lval.id
+                            )
+                        } else {
+                            if lval.indices.is_empty() {  // pass an array as a param to a function
+                                unsafe {
+                                    compiler.builder.build_in_bounds_gep(
+                                        origin_type,
+                                        ptr,
+                                        vec![compiler.int_type.const_zero(), compiler.int_type.const_zero()].as_ref(),
+                                        "array"
+                                    ).as_basic_value_enum()
+                                }
+                            } else {
+                                if type_.is_array_type() {
+                                    let mut idx_vals = vec![compiler.int_type.const_zero()];
+                                    idx_vals.extend(lval.indices
+                                        .iter()
+                                        .map(|expr| compiler
+                                            .int_type
+                                            .const_int(expr.eval(compiler).unwrap() as u64, false)
+                                        ),
+                                    );
+                                    compiler.builder.build_load(
+                                        compiler.int_type,
+                                        unsafe {
+                                            compiler.builder.build_in_bounds_gep(
+                                                type_,
+                                                ptr,
+                                                idx_vals.as_ref(),
+                                                "index_access"
+                                            )
+                                        },
+                                        "array_item"
+                                    )
+                                } else {  // array pointer
+                                    let idx_vals = lval.indices
+                                        .iter()
+                                        .map(|expr| compiler
+                                            .int_type
+                                            .const_int(expr.eval(compiler).unwrap() as u64, false)
+                                        ).collect::<Vec<IntValue>>();
+
+                                    compiler.builder.build_load(
+                                        compiler.int_type,
+                                        unsafe {
+                                            compiler.builder.build_in_bounds_gep(
+                                                origin_type,
+                                                ptr,
+                                                idx_vals.as_ref(),
+                                                "index_access"
+                                            )
+                                        },
+                                        "array_item"
+                                    )
+                                }
+                            }
+                        }
+                    }
                 })
             }
         }
     }
 }
 
-impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for FuncCall {
+impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for FuncCall {
     type Out = BasicValueEnum<'ctx>;
 
-    fn generate(&'ast self, compiler: &mut Compiler<'ctx, 'ast>) -> Result<Self::Out> {
+    fn generate(&'ast self, compiler: &mut Compiler<'ast, 'ctx>) -> Result<Self::Out> {
         let fv = compiler.module.get_function(&self.id).unwrap();
         if self.args.len() != fv.get_type().count_param_types() as usize {
             return Err(CompileErr::ArgCountMismatch {
@@ -807,11 +966,11 @@ impl<'ctx, 'ast> GenerateProgram<'ctx, 'ast> for FuncCall {
             });
         }
 
-        let llvm_params_value: Vec<BasicMetadataValueEnum> = self.args
+        let llvm_params_value = self.args
             .iter()
             .by_ref()
             .map(|arg| arg.generate(compiler).unwrap().into())
-            .collect();
+            .collect::<Vec<BasicMetadataValueEnum>>();
 
         Ok(
             compiler.builder.build_call(

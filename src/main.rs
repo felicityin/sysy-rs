@@ -20,18 +20,21 @@ fn main() {
             clap::Arg::new("input")
                 .short('i')
                 .default_value("input/hello.c")
+                .required(true)
                 .help("Input file needs to be parsed.")
                 .action(clap::ArgAction::Set),
             ).arg(
                 clap::Arg::new("output-ir")
                     .short('o')
                     .default_value("output/hello.ll")
+                    .required(true)
                     .help("Output llvm ir file")
                     .action(clap::ArgAction::Set),
             ).arg(
                 clap::Arg::new("output-riskv")
                     .short('s')
                     .default_value("output/hello.riscv")
+                    .required(true)
                     .help("Output riscv file")
                     .action(clap::ArgAction::Set),
             );

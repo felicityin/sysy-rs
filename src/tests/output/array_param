@@ -1,0 +1,24 @@
+; ModuleID = 'module'
+source_filename = "module"
+
+define void @f(ptr %a1) {
+entry:
+  %a = alloca ptr, align 8
+  store ptr %a1, ptr %a, align 8
+  %array_ptr = load ptr, ptr %a, align 8
+  %index_access = getelementptr inbounds [3 x i32], ptr %array_ptr, i32 1, i32 1
+  store i32 1, ptr %index_access, align 4
+  %b = alloca i32, align 4
+  %index_access2 = getelementptr inbounds [3 x i32], ptr %a, i32 1, i32 1
+  %array_item = load i32, ptr %index_access2, align 4
+  store i32 %array_item, ptr %b, align 4
+  ret void
+}
+
+define i32 @main() {
+entry:
+  %arr = alloca [2 x [3 x i32]], align 4
+  %array = getelementptr inbounds [2 x [3 x i32]], ptr %arr, i32 0, i32 0
+  call void @f(ptr %array)
+  ret i32 0
+}

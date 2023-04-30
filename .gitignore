@@ -1,2 +1,4 @@
 /target
 .vscode
+demo.c
+demo.ll

@@ -1,6 +1,6 @@
 int main() {
     int a = 0, b = 1;
-    if (a || b) {
+    if (1 < 2 || 2 > 3) {
         a = a + b;
     }
     return a;

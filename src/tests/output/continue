@@ -6,7 +6,7 @@ entry:
   br label %while_head
 
 while_head:                                       ; preds = %while_body, %entry
-  br i32 1, label %while_body, label %after_while
+  br i1 true, label %while_body, label %after_while
 
 while_body:                                       ; preds = %while_head
   br label %while_head

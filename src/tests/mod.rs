@@ -12,7 +12,7 @@ mod tests {
     lalrpop_mod!(sysy);
 
     macro_rules! test_case {
-        ( $testFuncName: ident, $filename: expr ) => {
+        ($testFuncName: ident, $filename: expr) => {
             #[test]
             fn $testFuncName() {
                 let path = get_current_dir();
@@ -55,5 +55,6 @@ mod tests {
     test_case!(test_continue, "continue");
     test_case!(test_function, "function");
     test_case!(test_global, "global");
-    // test_case!(test_array, "array");
+    test_case!(test_array, "array");
+    test_case!(test_array_param, "array_param");
 }

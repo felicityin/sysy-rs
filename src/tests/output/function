@@ -1,17 +1,18 @@
 ; ModuleID = 'module'
 source_filename = "module"
 
-define i32 @half(i32 %0) {
+define i32 @half(i32 %x1) {
 entry:
   %x = alloca i32, align 4
-  store i32 %0, ptr %x, align 4
-  %x1 = load i32, ptr %x, align 4
-  %int_div = sdiv i32 %x1, 2
+  store i32 %x1, ptr %x, align 4
+  %x2 = load i32, ptr %x, align 4
+  %int_div = sdiv i32 %x2, 2
   ret i32 %int_div
 }
 
 define void @f() {
 entry:
+  ret void
 }
 
 define i32 @main() {
