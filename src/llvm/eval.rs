@@ -95,12 +95,12 @@ impl Evaluate for MulExp {
         match self {
             Self::Unary(exp) => exp.eval(compiler),
             Self::MulUnary(lhs, op, rhs) => match (lhs.eval(compiler), rhs.eval(compiler)) {
-            (Some(lhs), Some(rhs)) => match op {
-                MulOp::Mul => Some(lhs * rhs),
-                MulOp::Div => (rhs != 0).then_some(lhs / rhs),
-                MulOp::Mod => (rhs != 0).then_some(lhs % rhs),
-            },
-            _ => None,
+                (Some(lhs), Some(rhs)) => match op {
+                    MulOp::Mul => Some(lhs * rhs),
+                    MulOp::Div => (rhs != 0).then_some(lhs / rhs),
+                    MulOp::Mod => (rhs != 0).then_some(lhs % rhs),
+                },
+                _ => None,
             },
         }
     }
@@ -134,10 +134,15 @@ impl Evaluate for LVal {
         let val = compiler.value(&self.id).ok()?;
         if self.indices.is_empty() {
             match val.0 {
-                VariableValue::ConstVal(v) => return Some(v),
-                _ => return None,
+                VariableValue::Const(c) => if c.is_int_value() {
+                    Some(c.into_int_value().get_zero_extended_constant().unwrap() as i32)
+                } else {
+                    None
+                }
+                _ => None,
             }
+        } else {
+            None
         }
-        None
     }
 }

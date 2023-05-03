@@ -57,4 +57,5 @@ mod tests {
     test_case!(test_global, "global");
     test_case!(test_array, "array");
     test_case!(test_array_param, "array_param");
+    test_case!(test_array_init, "array_init");
 }

@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+pub type Result<T> = std::result::Result<T, CompileErr>;
+
 #[derive(Error, Debug)]
 pub enum CompileErr {
     #[error("Duplicated symbol {0}")]
@@ -17,6 +19,6 @@ pub enum CompileErr {
     #[error("Deref int error ")]
     DerefInt,
 
-    #[error("The function is not implemented")]
-    NotImplement,
+    #[error("Invalid int error ")]
+    InvalidInit,
 }
