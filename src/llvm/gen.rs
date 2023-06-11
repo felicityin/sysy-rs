@@ -302,7 +302,6 @@ impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for VarDef {
                     compiler.int_type.as_basic_type_enum(),
                     |acc, len| acc.array_type(len.to_owned()).as_basic_type_enum(),
                 )
-                .as_basic_type_enum()
         };
 
         if compiler.current_fn.is_none() {  // global
@@ -405,7 +404,8 @@ impl<'ast, 'ctx> GenerateProgram<'ast, 'ctx> for VarDef {
 
 fn init_global_array<'ast, 'ctx>(
     compiler: &mut Compiler<'ast, 'ctx>,
-    id: &str, init: Vec<Initializer>,
+    id: &str,
+    init: Vec<Initializer>,
     dims: &Vec<u32>,
 ) -> Result<(GlobalValue<'ctx>, ArrayType<'ctx>)> {
     let mut values = Vec::new();
@@ -430,12 +430,12 @@ fn init_global_array<'ast, 'ctx>(
 
     // for each dimension, split the array into futher arrays
     for d in dims {
-        ty = ty.array_type(*d);
-
         arrays = arrays
             .chunks(*d as usize)
             .map(|a| ty.const_array(a))
             .collect::<Vec<ArrayValue>>();
+
+        ty = ty.array_type(*d);
     }
 
     let const_array = compiler.module.add_global(

@@ -1,9 +1,9 @@
 ; ModuleID = 'module'
 source_filename = "module"
 
-define i32 @sum(i32 %0, i32 %1) {
+define i32 @sum(i32 %a1, i32 %b2) {
 entry:
-  %int_add = add i32 %0, %1
+  %int_add = add i32 %a1, %b2
   ret i32 %int_add
 }
 
